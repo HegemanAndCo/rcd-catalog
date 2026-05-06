@@ -9,9 +9,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #f7f4ef;
   font-family: 'Lato', sans-serif;
   -webkit-font-smoothing: antialiased;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* HEADER */
@@ -53,6 +57,7 @@ body {
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
 }
+body::-webkit-scrollbar { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* GRID */
@@ -73,7 +78,8 @@ body {
 
 .tile {
   cursor: pointer;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
   background: #e8e3da;
   aspect-ratio: 1;
@@ -343,3 +349,15 @@ load();
 </script>
 </body>
 </html>
+
+<script>
+// Tell the parent page our full height so Framer resizes the iframe
+function reportHeight() {
+  const height = document.body.scrollHeight;
+  window.parent.postMessage({ type: 'setHeight', height: height }, '*');
+}
+// Report after images load and on resize
+window.addEventListener('load', reportHeight);
+window.addEventListener('resize', reportHeight);
+setInterval(reportHeight, 1000); // keep updating as images load in
+</script>
