@@ -1,76 +1,18 @@
-// Vercel Serverless Function — TRR Website Gallery Proxy
-// Caches results for 10 minutes to minimize Airtable API calls
-
-let cache = null;
-let cacheTime = 0;
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  const BASE_ID = 'appRZAg4zWZCgwihV';
-  const TABLE   = 'CUSTOM DESIGNS';
-  const API_KEY = process.env.AIRTABLE_API_KEY;
-
-  if (!API_KEY) return res.status(500).json({ error: 'AIRTABLE_API_KEY not set' });
-
-  const now = Date.now();
-  if (cache && (now - cacheTime) < CACHE_DURATION) {
-    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1200');
-    return res.status(200).json(cache);
-  }
-
-  try {
-    let allRecords = [], offset = null;
-
-    do {
-      const url = new URL(`https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}`);
-      if (offset) url.searchParams.set('offset', offset);
-      const response = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${API_KEY}` },
-      });
-      if (!response.ok) {
-        if (cache) return res.status(200).json(cache); // return stale cache on error
-        return res.status(response.status).json({ error: await response.text() });
-      }
-      const data = await response.json();
-      allRecords = allRecords.concat(data.records);
-      offset = data.offset || null;
-    } while (offset);
-
-    const items = [];
-    for (const record of allRecords) {
-      const fields = record.fields;
-      const allImages = [];
-      for (const value of Object.values(fields)) {
-        if (Array.isArray(value)) {
-          for (const att of value) {
-            if (att.type && att.type.startsWith('image/')) {
-              allImages.push({
-                url: att.url,
-                thumbnail: att.thumbnails?.large?.url || att.thumbnails?.small?.url || att.url,
-                width: att.width || null,
-                height: att.height || null,
-              });
-            }
-          }
-        }
-      }
-      if (allImages.length === 0) continue;
-      const name = fields['Name'] || fields['Title'] || fields['Product Name'] || `Piece #${record.id.slice(-6)}`;
-      items.push({ id: record.id, name: typeof name === 'string' ? name : String(name), image: allImages[0], allImages });
-    }
-
-    cache = { items, total: items.length };
-    cacheTime = now;
-    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1200');
-    return res.status(200).json(cache);
-
-  } catch (err) {
-    if (cache) return res.status(200).json(cache); // return stale cache on error
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet"/>
+<title>Gallery — The Right Ring</title>
+<style>
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+body { background: #ffffff; font-family: 'Montserrat', sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+.hdr { text-align: center; padding: 48px 20px 32px; border-bottom: 1px solid #e8e8e8; margin-bottom: 32px; }
+.hdr h1 { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 400; font-style: italic; color: #1a1a1a; margin-bottom: 12px; }
+.hdr p { font-size: 12px; font-weight: 300; color: #888; letter-spacing: 0.12em; line-height: 1.9; text-transform: uppercase; }
+.hdr-line { width: 32px; height: 1px; background: #1a1a1a; margin: 18px auto 0; }
+#loading { text-align: center; padding: 80px 20px; color: #aaa; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; }
+.spin { width: 26px; height: 26px; border: 1px solid #e0e0e0; border-top-color: #1a1a1a; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); }
